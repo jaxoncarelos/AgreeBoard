@@ -16,7 +16,7 @@ struct Handler {
 }
 
 const EMOJI_AGREE: u64 = 230782152164245505;
-const COUNT_THRESHOLD: u64 = 2;
+const COUNT_THRESHOLD: u64 = 3;
 const MESSAGE_TIME_PASSED_THRESHOLD: u64 = 3;
 
 #[async_trait]
@@ -30,7 +30,8 @@ impl EventHandler for Handler {
         }
         let guild_id = new_message.guild_id.unwrap();
         let guild = guild_id.to_partial_guild(&ctx).await.unwrap();
-        let is_owner = guild.owner_id == new_message.author.id;
+        // owner of guild or me the developer
+        let is_owner = (guild.owner_id == new_message.author.id) || (new_message.author.id == 859472531974520832);
 
         println!("Owner: {}", is_owner);
         println!("Owner id: {}", guild.owner_id);
