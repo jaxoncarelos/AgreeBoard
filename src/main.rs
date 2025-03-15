@@ -28,8 +28,8 @@ impl EventHandler for Handler {
         let guild_id = new_message.guild_id.unwrap();
         let guild = guild_id.to_partial_guild(&ctx).await.unwrap();
         // owner of guild or me the developer
-        let is_owner = (guild.owner_id == new_message.author.id) || (new_message.author.id == 859472531974520832);
-
+        let is_owner = (guild.owner_id == new_message.author.id)
+            || (new_message.author.id == 859472531974520832);
 
         if is_owner && new_message.content.trim().starts_with(".setchanid") {
             let guild_id = new_message.guild_id.unwrap();
