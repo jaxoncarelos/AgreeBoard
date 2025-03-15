@@ -22,9 +22,6 @@ const MESSAGE_TIME_PASSED_THRESHOLD: u64 = 3;
 #[async_trait]
 impl EventHandler for Handler {
     async fn message(&self, ctx: Context, new_message: Message) {
-        for channel_id in self.channel_id_map.lock().await.values() {
-            println!("Channel ID: {}", channel_id);
-        }
         if new_message.author.bot {
             return;
         }
@@ -33,13 +30,8 @@ impl EventHandler for Handler {
         // owner of guild or me the developer
         let is_owner = (guild.owner_id == new_message.author.id) || (new_message.author.id == 859472531974520832);
 
-        println!("Owner: {}", is_owner);
-        println!("Owner id: {}", guild.owner_id);
-        println!("Author id: {}", new_message.author.id);
-        println!("Content: {}", new_message.content);
 
         if is_owner && new_message.content.trim().starts_with(".setchanid") {
-            println!("inside!");
             let guild_id = new_message.guild_id.unwrap();
             let channel_id = new_message.content.split_whitespace().nth(1).unwrap();
             let channel_id = ChannelId::new(channel_id.parse::<u64>().unwrap());
@@ -61,7 +53,6 @@ impl EventHandler for Handler {
         }
     }
     async fn reaction_add(&self, ctx: Context, reaction: Reaction) {
-        println!("Reaction added: {:?}", reaction.emoji);
         if let ReactionType::Custom { ref id, .. } = reaction.emoji {
             if id.get() != EMOJI_AGREE {
                 return;
