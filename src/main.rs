@@ -1,8 +1,7 @@
 use dotenv::dotenv;
 use serenity::all::{
-    ChannelId, Context, CreateAllowedMentions, CreateMessage, EventHandler,
-    GatewayIntents, GuildId, Message, MessageId, MessageReference,
-    MessageReferenceKind, Reaction, ReactionType,
+    ChannelId, Context, CreateAllowedMentions, CreateMessage, EventHandler, GatewayIntents,
+    GuildId, Message, MessageId, MessageReference, MessageReferenceKind, Reaction, ReactionType,
 };
 use serenity::async_trait;
 use std::collections::HashMap;
@@ -15,9 +14,11 @@ struct Handler {
     channel_id_map: Arc<Mutex<HashMap<GuildId, ChannelId>>>,
     conn: Arc<Mutex<sqlite::Connection>>,
 }
+
 const EMOJI_AGREE: u64 = 230782152164245505;
 const COUNT_THRESHOLD: u64 = 2;
-const MESSAGE_TIME_PASSED_THRESHOLD: i64 = 3;
+const MESSAGE_TIME_PASSED_THRESHOLD: u64 = 3;
+
 #[async_trait]
 impl EventHandler for Handler {
     async fn message(&self, ctx: Context, new_message: Message) {
@@ -84,7 +85,12 @@ impl EventHandler for Handler {
         if reaction_count == COUNT_THRESHOLD {
             let message = reaction.message(&ctx).await.unwrap();
 
-            if message.timestamp.checked_add_days(chrono::naive::Days::new(MESSAGE_TIME_PASSED_THRESHOLD)).unwrap() < chrono::Utc::now() {
+            if message
+                .timestamp
+                .checked_add_days(chrono::naive::Days::new(MESSAGE_TIME_PASSED_THRESHOLD))
+                .unwrap()
+                < chrono::Utc::now()
+            {
                 return;
             }
 
@@ -100,7 +106,6 @@ impl EventHandler for Handler {
                 return;
             }
             let channel_id = channel_id.unwrap();
-
 
             channel_id
                 .send_message(
