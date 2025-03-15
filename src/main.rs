@@ -1,7 +1,7 @@
 use dotenv::dotenv;
 use serenity::all::{
-    ChannelId, Context, CreateAllowedMentions, CreateEmbed, CreateMessage, EmojiId, EventHandler,
-    GatewayIntents, GuildId, Interaction, Message, MessageId, MessageRef, MessageReference,
+    ChannelId, Context, CreateAllowedMentions, CreateMessage, EventHandler,
+    GatewayIntents, GuildId, Message, MessageId, MessageReference,
     MessageReferenceKind, Reaction, ReactionType,
 };
 use serenity::async_trait;
@@ -17,6 +17,7 @@ struct Handler {
 }
 const EMOJI_AGREE: u64 = 230782152164245505;
 const COUNT_THRESHOLD: u64 = 2;
+const MESSAGE_TIME_PASSED_THRESHOLD: i64 = 3;
 #[async_trait]
 impl EventHandler for Handler {
     async fn message(&self, ctx: Context, new_message: Message) {
@@ -43,7 +44,7 @@ impl EventHandler for Handler {
             let mut channel_id_map = self.channel_id_map.lock().await;
             channel_id_map.insert(guild_id, channel_id);
 
-            let mut conn = self.conn.lock().await;
+            let conn = self.conn.lock().await;
             conn.execute(
                 format!(
                     "INSERT OR REPLACE INTO channel_id (guild_id, channel_id) VALUES ({}, {})",
@@ -59,7 +60,7 @@ impl EventHandler for Handler {
     }
     async fn reaction_add(&self, ctx: Context, reaction: Reaction) {
         println!("Reaction added: {:?}", reaction.emoji);
-        if let ReactionType::Custom { id: (ref id), .. } = reaction.emoji {
+        if let ReactionType::Custom { ref id, .. } = reaction.emoji {
             if id.get() != EMOJI_AGREE {
                 return;
             }
@@ -71,7 +72,7 @@ impl EventHandler for Handler {
             .reactions
             .iter()
             .find(|reaction| {
-                if let ReactionType::Custom { id: (ref id), .. } = reaction.reaction_type {
+                if let ReactionType::Custom { ref id, .. } = reaction.reaction_type {
                     id.get() == EMOJI_AGREE
                 } else {
                     false
@@ -83,7 +84,7 @@ impl EventHandler for Handler {
         if reaction_count == COUNT_THRESHOLD {
             let message = reaction.message(&ctx).await.unwrap();
 
-            if message.timestamp.checked_add_days(chrono::naive::Days::new(3)).unwrap() > chrono::Utc::now() {
+            if message.timestamp.checked_add_days(chrono::naive::Days::new(MESSAGE_TIME_PASSED_THRESHOLD)).unwrap() < chrono::Utc::now() {
                 return;
             }
 
@@ -92,7 +93,7 @@ impl EventHandler for Handler {
                 return;
             }
             posted.insert(reaction.message_id, true);
-            let mut channel_id_map = self.channel_id_map.lock().await;
+            let channel_id_map = self.channel_id_map.lock().await;
             let channel_id = channel_id_map.get(&reaction.guild_id.unwrap());
 
             if channel_id.is_none() {
