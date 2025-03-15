@@ -11,10 +11,12 @@ use std::sync::Arc;
 use tokio::sync::Mutex;
 
 struct Handler {
+    posted_map: Arc<Mutex<HashMap<MessageId, bool>>>,
     channel_id_map: Arc<Mutex<HashMap<GuildId, ChannelId>>>,
     conn: Arc<Mutex<sqlite::Connection>>,
 }
 const EMOJI_AGREE: u64 = 230782152164245505;
+const COUNT_THRESHOLD: u64 = 2;
 #[async_trait]
 impl EventHandler for Handler {
     async fn message(&self, ctx: Context, new_message: Message) {
@@ -69,7 +71,7 @@ impl EventHandler for Handler {
             .reactions
             .iter()
             .find(|reaction| {
-                if let ReactionType::Custom { id: (ref id), .. } = reaction {
+                if let ReactionType::Custom { id: (ref id), .. } = reaction.reaction_type {
                     id.get() == EMOJI_AGREE
                 } else {
                     false
@@ -78,7 +80,18 @@ impl EventHandler for Handler {
             .unwrap()
             .count;
 
-        if reaction_count >= 3 {
+        if reaction_count == COUNT_THRESHOLD {
+            let message = reaction.message(&ctx).await.unwrap();
+
+            if message.timestamp.checked_add_days(chrono::naive::Days::new(3)).unwrap() > chrono::Utc::now() {
+                return;
+            }
+
+            let mut posted = self.posted_map.lock().await;
+            if posted.contains_key(&reaction.message_id) {
+                return;
+            }
+            posted.insert(reaction.message_id, true);
             let mut channel_id_map = self.channel_id_map.lock().await;
             let channel_id = channel_id_map.get(&reaction.guild_id.unwrap());
 
@@ -87,7 +100,6 @@ impl EventHandler for Handler {
             }
             let channel_id = channel_id.unwrap();
 
-            let message = reaction.message(&ctx).await.unwrap();
 
             channel_id
                 .send_message(
@@ -131,6 +143,7 @@ async fn main() {
         | GatewayIntents::GUILD_MESSAGE_REACTIONS
         | GatewayIntents::MESSAGE_CONTENT;
     let handler = Handler {
+        posted_map: Arc::new(Mutex::new(HashMap::new())),
         channel_id_map: Arc::new(Mutex::new(HashMap::new())),
         conn: Arc::new(Mutex::new(connection)),
     };
