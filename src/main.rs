@@ -1,5 +1,4 @@
 use dotenv::dotenv;
-use serenity::all::RoleAction::Create;
 use serenity::all::{
     ChannelId, Context, CreateAllowedMentions, CreateEmbed, CreateMessage, EmojiId, EventHandler,
     GatewayIntents, GuildId, Interaction, Message, MessageId, MessageRef, MessageReference,
@@ -12,10 +11,10 @@ use std::sync::Arc;
 use tokio::sync::Mutex;
 
 struct Handler {
-    reaction_map: Arc<Mutex<HashMap<MessageId, i32>>>,
     channel_id_map: Arc<Mutex<HashMap<GuildId, ChannelId>>>,
     conn: Arc<Mutex<sqlite::Connection>>,
 }
+const EMOJI_AGREE: u64 = 230782152164245505;
 #[async_trait]
 impl EventHandler for Handler {
     async fn message(&self, ctx: Context, new_message: Message) {
@@ -59,14 +58,27 @@ impl EventHandler for Handler {
     async fn reaction_add(&self, ctx: Context, reaction: Reaction) {
         println!("Reaction added: {:?}", reaction.emoji);
         if let ReactionType::Custom { id: (ref id), .. } = reaction.emoji {
-            if id.get() != 230782152164245505 {
+            if id.get() != EMOJI_AGREE {
                 return;
             }
         }
-        let mut reaction_map = self.reaction_map.lock().await;
-        let counter = reaction_map.entry(reaction.message_id).or_insert(0);
-        *counter += 1;
-        if *counter == 2 {
+        let reaction_count: u64 = reaction
+            .message(&ctx)
+            .await
+            .unwrap()
+            .reactions
+            .iter()
+            .find(|reaction| {
+                if let ReactionType::Custom { id: (ref id), .. } = reaction {
+                    id.get() == EMOJI_AGREE
+                } else {
+                    false
+                }
+            })
+            .unwrap()
+            .count;
+
+        if reaction_count >= 3 {
             let mut channel_id_map = self.channel_id_map.lock().await;
             let channel_id = channel_id_map.get(&reaction.guild_id.unwrap());
 
@@ -119,7 +131,6 @@ async fn main() {
         | GatewayIntents::GUILD_MESSAGE_REACTIONS
         | GatewayIntents::MESSAGE_CONTENT;
     let handler = Handler {
-        reaction_map: Arc::new(Mutex::new(HashMap::new())),
         channel_id_map: Arc::new(Mutex::new(HashMap::new())),
         conn: Arc::new(Mutex::new(connection)),
     };
