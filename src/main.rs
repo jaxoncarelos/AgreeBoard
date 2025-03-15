@@ -1,7 +1,9 @@
 use dotenv::dotenv;
+use serenity::all::RoleAction::Create;
 use serenity::all::{
-    ChannelId, Context, CreateEmbed, CreateMessage, EmojiId, EventHandler, GatewayIntents, GuildId,
-    Interaction, Message, MessageId, Reaction, ReactionType,
+    ChannelId, Context, CreateAllowedMentions, CreateEmbed, CreateMessage, EmojiId, EventHandler,
+    GatewayIntents, GuildId, Interaction, Message, MessageId, MessageRef, MessageReference,
+    MessageReferenceKind, Reaction, ReactionType,
 };
 use serenity::async_trait;
 use std::collections::HashMap;
@@ -64,7 +66,7 @@ impl EventHandler for Handler {
         let mut reaction_map = self.reaction_map.lock().await;
         let counter = reaction_map.entry(reaction.message_id).or_insert(0);
         *counter += 1;
-        if *counter == 5 {
+        if *counter == 2 {
             let mut channel_id_map = self.channel_id_map.lock().await;
             let channel_id = channel_id_map.get(&reaction.guild_id.unwrap());
 
@@ -75,12 +77,28 @@ impl EventHandler for Handler {
 
             let message = reaction.message(&ctx).await.unwrap();
 
-            let embed = CreateEmbed::new()
-                .title("New Message")
-                .description(format!("**{0}**\n {1}", message.author, message.content));
-            let builder = CreateMessage::new().embed(embed);
+            channel_id
+                .send_message(
+                    &ctx.http,
+                    CreateMessage::new()
+                        .content(format!("<@{}>", message.author.id.get()))
+                        .allowed_mentions(CreateAllowedMentions::new().all_users(false)),
+                )
+                .await
+                .unwrap();
 
-            let _ = channel_id.send_message(&ctx.http, builder).await;
+            channel_id
+                .send_message(
+                    &ctx.http,
+                    CreateMessage::new().reference_message(
+                        MessageReference::new(MessageReferenceKind::Forward, message.channel_id)
+                            .message_id(message.id)
+                            .guild_id(reaction.guild_id.unwrap())
+                            .fail_if_not_exists(true),
+                    ),
+                )
+                .await
+                .unwrap();
         }
     }
 }
