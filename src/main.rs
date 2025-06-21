@@ -94,10 +94,7 @@ impl EventHandler for Handler {
             let channel_id_map = self.channel_id_map.lock().await;
             let channel_id = channel_id_map.get(&reaction.guild_id.unwrap());
 
-            if channel_id.is_none() {
-                return;
-            }
-            let channel_id = channel_id.unwrap();
+            let Some(channel_id) = channel_id else { return };
 
             channel_id
                 .send_message(
